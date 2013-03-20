@@ -13,6 +13,29 @@ local source = source_mt.__index
 local resource_mt = { __index = {} }
 local resource = resource_mt.__index
 
+-- on partial requests seeks the file to
+-- the start of the requested range and returns
+-- the number of bytes requested.
+-- on full requests returns nil
+local function getrange (range, f)
+        if not range then return nil end
+
+        local s,e, r_A, r_B = string.find (range, "(%d*)%s*-%s*(%d*)")
+        if s and e then
+                r_A = tonumber (r_A)
+                r_B = tonumber (r_B)
+
+                if r_A then
+                        f:seek ("set", r_A)
+                        if r_B then return r_B + 1 - r_A end
+                else
+                        if r_B then f:seek ("end", - r_B) end
+                end
+        end
+
+        return nil
+end
+
 function source:getRoot ()
 	return self.rootDir
 end
@@ -127,24 +150,35 @@ function resource:getContentType ()
 	return xavante.mimetypes [exten] or ""
 end
 
-function resource:getContentSize ()
+function resource:getContentSize (range)
 	if self.attr.mode == "file" then
-		return self.attr.size
-	else return 0
+		local range_len = nil
+
+		if range then
+			local f = io.open (self.diskpath, "rb")
+			if f then
+				range_len = getrange (range, f)
+				f:close ()
+			end
+		end
+		return (range_len or self.attr.size), range_len ~= nil
+	else return 0, false
 	end
 end
 
-function resource:getContentData ()
+function resource:getContentData (range)
 	local function gen ()
 		local f = io.open (self.diskpath, "rb")
 		if not f then
 			return
 		end
 
+		local left = getrange (range, f) or self.attr.size
 		local block
 		repeat
-			block = f:read (8192)
+			block = f:read (math.min (8192, left))
 			if block then
+				left = left - string.len (block)
 				coroutine.yield (block)
 			end
 		until not block
