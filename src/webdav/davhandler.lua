@@ -410,10 +410,13 @@ local function dav_get (req, res, repos_b, props_b)
 
 	res.headers ["Content-Type"] = resource:getContentType ()
 	local range = req.headers ["range"]
-	local range_len, partial = resource:getContentSize (range)
+	local range_len, partial, start, total = resource:getContentSize (range)
 	res.headers ["Content-Length"] = range_len
 	if partial then
 		res.statusline = "HTTP/1.1 206 Partial Content"
+		res.headers["Accept-Ranges"] = "bytes"
+		res.headers["Content-Range"] =
+			"bytes "..start.."-"..(start+range_len-1).."/"..total
 	end
 
 	res:send_headers ()

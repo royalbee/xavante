@@ -27,9 +27,12 @@ local function getrange (range, f)
 
                 if r_A then
                         f:seek ("set", r_A)
-                        if r_B then return r_B + 1 - r_A end
+                        if r_B then return r_B + 1 - r_A, f:seek() end
                 else
-                        if r_B then f:seek ("end", - r_B) end
+                        if r_B then
+				f:seek ("end", - r_B)
+				return r_B, f:seek()
+			end
                 end
         end
 
@@ -157,11 +160,12 @@ function resource:getContentSize (range)
 		if range then
 			local f = io.open (self.diskpath, "rb")
 			if f then
-				range_len = getrange (range, f)
+				range_len, range_start = getrange (range, f)
 				f:close ()
 			end
 		end
-		return (range_len or self.attr.size), range_len ~= nil
+		return (range_len or self.attr.size),
+			range_len ~= nil, range_start, self.attr.size
 	else return 0, false
 	end
 end
