@@ -181,7 +181,7 @@ function resource:getContentData (range)
 				left = left - string.len (block)
 				coroutine.yield (block)
 			end
-		until not block
+		until left == 0 or not block
 		f:close ()
 	end
 
